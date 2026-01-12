@@ -1,0 +1,53 @@
+{
+  "start": "setAppName",
+  "nodes": [
+    {
+      "name": "setAppName",
+      "type": "SET",
+      "config": {
+        "app": "StreakSetGo"
+      },
+      "next": {
+        "default": "setWelcomeMessage"
+      }
+    },
+    {
+      "name": "setWelcomeMessage",
+      "type": "SET",
+      "config": {
+        "message": "Welcome to StreakSetGo! Let's build habits.",
+        "command": "help"
+      },
+      "next": {
+        "default": "checkCommand"
+      }
+    },
+    {
+      "name": "checkCommand",
+      "type": "IF",
+      "config": {
+        "left": "$.command",
+        "operator": "EQUALS",
+        "right": "add"
+      },
+      "next": {
+        "true": "addFlow",
+        "false": "helpFlow"
+      }
+    },
+    {
+      "name": "addFlow",
+      "type": "SET",
+      "config": {
+        "message1": "Adding habit"
+      }
+    },
+    {
+      "name": "helpFlow",
+      "type": "SET",
+      "config": {
+        "message1": "Help message"
+      }
+    }
+  ]
+}
