@@ -12,6 +12,7 @@ repositories {
 dependencies {
     testImplementation(kotlin("test-junit5"))
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.1")
+    implementation("org.postgresql:postgresql:42.7.3")
 }
 
 tasks.test {

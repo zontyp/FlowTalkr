@@ -29,6 +29,8 @@ class Engine {
             val routeKey = when {
                 result.outputData.has("condition") ->
                     if (result.outputData["condition"].asBoolean()) "true" else "false"
+                result.outputData.has("switch") ->
+                    result.outputData["switch"].asText()
 
                 else -> "default"
             }

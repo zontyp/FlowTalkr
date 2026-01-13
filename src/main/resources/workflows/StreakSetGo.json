@@ -1,5 +1,5 @@
 {
-  "start": "setAppName",
+  "start": "markAddingHabit",
   "nodes": [
     {
       "name": "setAppName",
@@ -15,11 +15,23 @@
       "name": "setWelcomeMessage",
       "type": "SET",
       "config": {
-        "message": "Welcome to StreakSetGo! Let's build habits.",
-        "command": "help"
+        "message": "Welcome to StreakSetGo! Let's build habits."
+
       },
       "next": {
         "default": "checkCommand"
+      }
+    },
+    {
+      "name": "routeCommand",
+      "type": "SWITCH",
+      "config": {
+        "field": "$.command"
+      },
+      "next": {
+        "add": "addFlow",
+        "welcome": "setWelcomeMessage",
+        "help": "helpFlow"
       }
     },
     {
@@ -48,6 +60,29 @@
       "config": {
         "message1": "Help message"
       }
+    },
+    {
+      "name": "markAddingHabit",
+      "type": "PG_WRITE",
+      "config": {
+        "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, true) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = true"
+      },
+      "next": {
+        "default": "addFlow"
+      }
+    },
+    {
+      "name": "loadUserState",
+      "type": "PG_READ",
+      "config": {
+        "query": "SELECT is_adding_habit FROM user_state WHERE user_id = :userId",
+        "resultMode": "SINGLE"
+      },
+      "next": {
+        "default": "helpFlow"
+      }
     }
+
+
   ]
 }
