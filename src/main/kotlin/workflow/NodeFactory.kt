@@ -1,13 +1,15 @@
 package workflow
 import engine.Node
-import nodes.SetNode
-import nodes.IfNode
 import com.fasterxml.jackson.databind.JsonNode
-import nodes.PGWriteNode
-import nodes.SwitchNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import nodes.*
 import javax.sql.DataSource
 
-class NodeFactory(private val dataSource: DataSource){
+class NodeFactory(
+    private val dataSource: DataSource,
+    private val mapper: ObjectMapper,
+    private val botToken:String
+    ){
 
     fun create(
         name: String,
@@ -19,6 +21,10 @@ class NodeFactory(private val dataSource: DataSource){
             "IF"  -> IfNode(name, config)
             "SWITCH" -> SwitchNode(name, config) // 👈 required
             "PG_WRITE" -> PGWriteNode(name, config, dataSource)
+            "PG_READ" -> PGReadNode(name, config, dataSource, mapper)
+            "TG_SEND" -> TGSendNode(name, config, botToken, mapper)
+
+
             else  -> error("Unknown node type: $type")
         }
     }

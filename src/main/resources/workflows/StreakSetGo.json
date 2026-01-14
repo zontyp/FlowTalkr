@@ -1,5 +1,5 @@
 {
-  "start": "markAddingHabit",
+  "start": "readIsAddingHabit",
   "nodes": [
     {
       "name": "setAppName",
@@ -58,7 +58,10 @@
       "name": "helpFlow",
       "type": "SET",
       "config": {
-        "message1": "Help message"
+        "message": "Help message"
+      },
+      "next": {
+        "default": "sendHelpMessage"
       }
     },
     {
@@ -72,7 +75,7 @@
       }
     },
     {
-      "name": "loadUserState",
+      "name": "readIsAddingHabit",
       "type": "PG_READ",
       "config": {
         "query": "SELECT is_adding_habit FROM user_state WHERE user_id = :userId",
@@ -81,7 +84,15 @@
       "next": {
         "default": "helpFlow"
       }
+    },
+    {
+      "name": "sendHelpMessage",
+      "type": "TG_SEND",
+      "config": {
+        "text": "$.message"
+      }
     }
+
 
 
   ]
