@@ -32,19 +32,19 @@ class IfNode(
         val rightValue = configData["right"]
             ?: error("IF node missing 'right'")
 
-        val leftValue = JsonPathResolver.resolve(leftPath, inputData)
+        val leftValue = JsonPathResolver.resolve(leftPath, inputData,"false")
             ?: error("Path not found: $leftPath")
 
         val condition = when (operator) {
-            Operator.EQUALS -> leftValue == rightValue
-            Operator.NOT_EQUALS -> leftValue != rightValue
+            Operator.EQUALS -> leftValue == rightValue.asText()
+            Operator.NOT_EQUALS -> leftValue != rightValue.asText()
         }
 
         val output = inputData.deepCopy<ObjectNode>()
-        output.put("condition", condition)
 
         return NodeResult(
-            outputData = output
+            outputData = output,
+            routeKey = condition.toString()
         )
     }
 }

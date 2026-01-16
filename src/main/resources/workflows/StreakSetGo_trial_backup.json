@@ -1,0 +1,99 @@
+{
+  "start": "readIsAddingHabit",
+  "nodes": [
+    {
+      "name": "setAppName",
+      "type": "SET",
+      "config": {
+        "app": "StreakSetGo"
+      },
+      "next": {
+        "default": "setWelcomeMessage"
+      }
+    },
+    {
+      "name": "setWelcomeMessage",
+      "type": "SET",
+      "config": {
+        "message": "Welcome to StreakSetGo! Let's build habits."
+
+      },
+      "next": {
+        "default": "checkCommand"
+      }
+    },
+    {
+      "name": "routeCommand",
+      "type": "SWITCH",
+      "config": {
+        "field": "$.command"
+      },
+      "next": {
+        "add": "addFlow",
+        "welcome": "setWelcomeMessage",
+        "help": "helpFlow"
+      }
+    },
+    {
+      "name": "checkCommand",
+      "type": "IF",
+      "config": {
+        "left": "$.command",
+        "operator": "EQUALS",
+        "right": "add"
+      },
+      "next": {
+        "true": "addFlow",
+        "false": "helpFlow"
+      }
+    },
+    {
+      "name": "addFlow",
+      "type": "SET",
+      "config": {
+        "message1": "Adding habit"
+      }
+    },
+    {
+      "name": "helpFlow",
+      "type": "SET",
+      "config": {
+        "message": "Help message"
+      },
+      "next": {
+        "default": "sendHelpMessage"
+      }
+    },
+    {
+      "name": "markAddingHabit",
+      "type": "PG_WRITE",
+      "config": {
+        "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, true) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = true"
+      },
+      "next": {
+        "default": "addFlow"
+      }
+    },
+    {
+      "name": "readIsAddingHabit",
+      "type": "PG_READ",
+      "config": {
+        "query": "SELECT is_adding_habit FROM user_state WHERE user_id = :userId",
+        "resultMode": "SINGLE"
+      },
+      "next": {
+        "default": "helpFlow"
+      }
+    },
+    {
+      "name": "sendHelpMessage",
+      "type": "TG_SEND",
+      "config": {
+        "text": "$.message"
+      }
+    }
+
+
+
+  ]
+}

@@ -16,8 +16,6 @@ class PGReadNode(
 ) : Node {
 
     override val type: String = "PG_READ"
-
-    // DB reads do not touch workflow state
     override val stateAccess: StateAccess = StateAccess.STATELESS
 
     override fun execute(
@@ -28,6 +26,9 @@ class PGReadNode(
         val sql = configData["query"]?.asText()
             ?: error("PGReadNode missing 'query'")
 
+        val resultMode = configData["resultMode"]?.asText() ?: "SINGLE"
+        val resultKey = configData["resultKey"]?.asText() ?: "result"
+
         val paramRegex = Regex(":(\\w+)")
         val paramNames = paramRegex.findAll(sql)
             .map { it.groupValues[1] }
@@ -35,13 +36,14 @@ class PGReadNode(
 
         val resolvedSql = paramRegex.replace(sql, "?")
 
-        val output = inputData.deepCopy<ObjectNode>()
+        // ✅ FIX 1: safe ObjectNode creation
+        val output = (inputData as? ObjectNode)?.deepCopy()
+            ?: mapper.createObjectNode()
 
         dataSource.connection.use { conn ->
             conn.prepareStatement(resolvedSql).use { ps ->
-                var index = 1
 
-                // Bind parameters with correct typing
+                var index = 1
                 for (param in paramNames) {
                     val value = inputData[param]
                         ?: error("Missing input field for SQL param: $param")
@@ -53,7 +55,8 @@ class PGReadNode(
                         value.isBoolean ->
                             ps.setBoolean(index++, value.asBoolean())
 
-                        value.isDouble || value.isFloat ->
+                        // ✅ FIX 2: correct floating check
+                        value.isFloatingPointNumber ->
                             ps.setDouble(index++, value.asDouble())
 
                         value.isTextual ->
@@ -66,20 +69,52 @@ class PGReadNode(
 
                 val rs = ps.executeQuery()
 
-                if (rs.next()) {
-                    val meta = rs.metaData
-                    for (i in 1..meta.columnCount) {
-                        val columnName = meta.getColumnLabel(i)
-                        val value = rs.getObject(i)
+                when (resultMode.uppercase()) {
 
-                        output.set<JsonNode>(
-                            columnName,
-                            mapper.valueToTree(value)
-                        )
+                    "LIST" -> {
+                        val arrayNode = mapper.createArrayNode()
+
+                        while (rs.next()) {
+                            val meta = rs.metaData
+                            val rowNode = mapper.createObjectNode()
+
+                            for (i in 1..meta.columnCount) {
+                                val columnName = meta.getColumnLabel(i)
+                                val value = rs.getObject(i)
+                                rowNode.set<JsonNode>(
+                                    columnName,
+                                    mapper.valueToTree(value)
+                                )
+                            }
+
+                            arrayNode.add(rowNode)
+                        }
+
+                        output.set<JsonNode>(resultKey, arrayNode)
                     }
+
+                    "SINGLE" -> {
+                        if (rs.next()) {
+                            val meta = rs.metaData
+                            for (i in 1..meta.columnCount) {
+                                val columnName = meta.getColumnLabel(i)
+                                val value = rs.getObject(i)
+                                output.set<JsonNode>(
+                                    columnName,
+                                    mapper.valueToTree(value)
+                                )
+                            }
+                        }
+                        else {
+                            // explicitly do nothing
+                        }
+                    }
+
+                    else -> error("Unsupported resultMode: $resultMode")
                 }
             }
         }
+
         return NodeResult(outputData = output)
     }
 }

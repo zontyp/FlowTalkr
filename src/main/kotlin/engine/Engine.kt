@@ -17,25 +17,29 @@ class Engine {
         while (currentNodeName != null) {
             val wfNode = workflow.nodes[currentNodeName]
                 ?: error("Unknown node: $currentNodeName")
-
+            println("executing")
+            println (wfNode.node)
+            println(wfNode.next)
+            println("executing ends")
             val result = wfNode.node.execute(
                 inputData = currentData,
                 state = state
             )
 
             currentData = result.outputData
+            println("output data is ")
+            println(currentData)
+            println("output data ends ")
 
             // 🔑 routing decision
-            val routeKey = when {
-                result.outputData.has("condition") ->
-                    if (result.outputData["condition"].asBoolean()) "true" else "false"
-                result.outputData.has("switch") ->
-                    result.outputData["switch"].asText()
-
-                else -> "default"
-            }
-
+            var routeKey = result.routeKey ?: "default"
+            if(routeKey !in wfNode.next)
+                routeKey = "default"
             currentNodeName = wfNode.next[routeKey]
+            println("printing route key ")
+            println(routeKey)
+            println(currentNodeName)
+            println("printing route key ends ")
         }
 
         return currentData

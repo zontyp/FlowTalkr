@@ -24,19 +24,15 @@ class SwitchNode(
         val fieldPath = configData["field"]?.asText()
             ?: error("SWITCH node missing 'field'")
 
-        val valueNode = JsonPathResolver.resolve(fieldPath, inputData)
-            ?: error("Path not found: $fieldPath")
+        var switchOutputStr = JsonPathResolver.resolve(fieldPath, inputData)
 
-        if (!valueNode.isTextual) {
-            error("SWITCH field must resolve to a string")
-        }
 
         // Preserve context, add routing hint
         val output = inputData.deepCopy<ObjectNode>()
-        output.put("switch", valueNode.asText())
 
         return NodeResult(
-            outputData = output
+            outputData = output ,
+            routeKey = switchOutputStr
         )
     }
 }

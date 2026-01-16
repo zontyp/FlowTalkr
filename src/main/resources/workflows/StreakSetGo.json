@@ -1,95 +1,144 @@
 {
-  "start": "readIsAddingHabit",
+  "start": "setCommandType",
   "nodes": [
     {
-      "name": "setAppName",
+      "name": "setCommandType",
       "type": "SET",
       "config": {
-        "app": "StreakSetGo"
+        "commandType": {
+          "from": "$.command",
+          "op": "SPLIT_BEFORE",
+          "arg": ":"
+        }
       },
       "next": {
-        "default": "setWelcomeMessage"
+        "default": "commandTypeSwitch"
       }
     },
-    {
-      "name": "setWelcomeMessage",
-      "type": "SET",
-      "config": {
-        "message": "Welcome to StreakSetGo! Let's build habits."
 
-      },
-      "next": {
-        "default": "checkCommand"
-      }
-    },
     {
-      "name": "routeCommand",
+      "name": "commandSwitch",
       "type": "SWITCH",
       "config": {
         "field": "$.command"
       },
       "next": {
-        "add": "addFlow",
-        "welcome": "setWelcomeMessage",
-        "help": "helpFlow"
+        "addhabit": "writeIsAddHabit",
+        "default": "readIsAddingHabit",
+        "done": "readUserHabits"
       }
     },
+
     {
-      "name": "checkCommand",
-      "type": "IF",
+      "name": "readUserHabits",
+      "type": "PG_READ",
       "config": {
-        "left": "$.command",
-        "operator": "EQUALS",
-        "right": "add"
+        "query": "SELECT id, habit_name FROM user_habits WHERE user_id = :userId ORDER BY id ASC",
+        "resultMode": "LIST",
+        "resultKey": "habits"
       },
       "next": {
-        "true": "addFlow",
+        "default": "sendHabitsDone"
+      }
+    },
+
+
+    {
+      "name": "readIsAddingHabit",
+      "type": "PG_READ",
+      "config": {
+        "query": "SELECT COALESCE((SELECT is_adding_habit FROM user_state WHERE user_id = :userId), false) AS is_adding_habit",
+        "resultMode": "SINGLE"
+      },
+      "next": {
+        "default": "ifIsReadingHabit"
+      }
+    },
+
+    {
+      "name": "ifIsReadingHabit",
+      "type": "IF",
+      "config": {
+        "left": "$.is_adding_habit",
+        "operator": "EQUALS",
+        "right": "true"
+      },
+      "next": {
+        "true": "writeInsertHabit",
         "false": "helpFlow"
       }
     },
+
+
     {
-      "name": "addFlow",
-      "type": "SET",
-      "config": {
-        "message1": "Adding habit"
-      }
-    },
-    {
-      "name": "helpFlow",
-      "type": "SET",
-      "config": {
-        "message": "Help message"
-      },
-      "next": {
-        "default": "sendHelpMessage"
-      }
-    },
-    {
-      "name": "markAddingHabit",
+      "name": "writeIsAddHabit",
       "type": "PG_WRITE",
       "config": {
         "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, true) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = true"
       },
       "next": {
-        "default": "addFlow"
+        "default": "sendHabitNameAskMsg"
       }
     },
     {
-      "name": "readIsAddingHabit",
-      "type": "PG_READ",
+      "name": "writeInsertHabit",
+      "type": "PG_WRITE",
       "config": {
-        "query": "SELECT is_adding_habit FROM user_state WHERE user_id = :userId",
-        "resultMode": "SINGLE"
+        "query": "INSERT INTO user_habits (user_id, habit_name, created_at) VALUES (:userId, :command, NOW())"
       },
       "next": {
-        "default": "helpFlow"
+        "default": "writeResetAddHabitState"
+      }
+    },
+
+    {
+      "name": "writeResetAddHabitState",
+      "type": "PG_WRITE",
+      "config": {
+        "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, false) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = false"
+      },
+      "next": {
+        "default": "sendHabitAddedSuccessfully"
       }
     },
     {
-      "name": "sendHelpMessage",
+      "name": "sendHabitNameAskMsg",
       "type": "TG_SEND",
       "config": {
-        "text": "$.message"
+        "text": "Please type habit name to add the habit. example - 'Daily Run', 'Sleep On Time' etc."
+      }
+    },
+    {
+      "name": "sendHabitAddedSuccessfully",
+      "type": "TG_SEND",
+      "config": {
+        "text": "We added your habit successfully."
+      }
+    },
+    {
+      "name": "helpFlow",
+      "type": "TG_SEND",
+      "config": {
+        "text": "Help Message"
+      }
+    },
+    {
+      "name": "sendHabitsDone",
+      "type": "TG_SEND",
+      "config": {
+        "mode": "MULTI_ITEM_SINGLE_MESSAGE",
+        "listPath": "$.habits",
+        "headerText": "Your habits for today 👇",
+        "rowTemplate": [
+          {
+            "text": "👍 {habit_name}",
+            "callback_data": "done:{id}"
+          },
+          {
+            "text": "👎",
+            "callback_data": "skip:{id}"
+          }
+        ]
       }
     }
 
