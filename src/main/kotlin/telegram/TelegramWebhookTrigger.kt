@@ -33,18 +33,32 @@ class TelegramWebhookTrigger(
      * Tells Telegram where to send updates
      */
     private fun registerWebhook() {
-        val url =
-            "https://api.telegram.org/bot$botToken/setWebhook?url=$publicBaseUrl$webhookPath"
+        val url = URL("https://api.telegram.org/bot$botToken/setWebhook")
 
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.requestMethod = "GET"
+        val payload = mapper.createObjectNode().apply {
+            put("url", "$publicBaseUrl$webhookPath")
+            putArray("allowed_updates").apply {
+                add("message")
+                add("callback_query")
+            }
+        }
+
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+
+        conn.outputStream.use {
+            it.write(mapper.writeValueAsBytes(payload))
+        }
 
         if (conn.responseCode != 200) {
             error("Failed to register Telegram webhook")
         }
 
-        println("Telegram webhook registered at $publicBaseUrl$webhookPath")
+        println("Telegram webhook registered with callback_query support")
     }
+
 
     /**
      * Starts HTTP server to receive Telegram updates
@@ -68,22 +82,80 @@ class TelegramWebhookTrigger(
      * Converts Telegram update → workflow input
      */
     private fun handleUpdate(update: JsonNode) {
-        val message = update["message"] ?: return
 
-        val input = mapper.createObjectNode().apply {
-            put("chatId", message["chat"]["id"].asLong())
-            put("userId", message["from"]["id"].asLong())
-            put("text", message["text"]?.asText() ?: "")
-            put(
-                "command",
-                message["text"]?.asText()?.removePrefix("/") ?: "text"
-            )
+        println("RAW TELEGRAM UPDATE: starts")
+        println(update.toPrettyString())
+        println("RAW TELEGRAM UPDATE: ends")
+
+        val input = mapper.createObjectNode()
+
+        when {
+            // -------- TEXT MESSAGE --------
+            update.has("message") -> {
+                val message = update["message"]
+
+                input.put("chatId", message["chat"]["id"].asLong())
+                input.put("userId", message["from"]["id"].asLong())
+                input.put(
+                    "command",
+                    message["text"]?.asText()?.removePrefix("/") ?: ""
+                )
+            }
+
+            // -------- INLINE BUTTON CLICK --------
+            update.has("callback_query") -> {
+                val callback = update["callback_query"]
+
+                input.put(
+                    "chatId",
+                    callback["message"]["chat"]["id"].asLong()
+                )
+                input.put(
+                    "userId",
+                    callback["from"]["id"].asLong()
+                )
+                input.put(
+                    "command",
+                    callback["data"].asText()
+                )
+
+                // REQUIRED by Telegram UX
+                answerCallbackQuery(callback["id"].asText())
+            }
+
+            else -> {
+                println("Ignored update type")
+                return
+            }
         }
+
+        println("NORMALIZED INPUT TO ENGINE:")
         println(input.toPrettyString())
+
         val result = engine.run(
             workflow = workflow,
             initialInput = input
         )
+
+        println("ENGINE RESULT:")
         println(result.toPrettyString())
     }
+    private fun answerCallbackQuery(callbackQueryId: String) {
+        val url = URL("https://api.telegram.org/bot$botToken/answerCallbackQuery")
+
+        val payload = mapper.createObjectNode().apply {
+            put("callback_query_id", callbackQueryId)
+        }
+
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+
+        conn.outputStream.use {
+            it.write(mapper.writeValueAsBytes(payload))
+        }
+    }
+
+
 }

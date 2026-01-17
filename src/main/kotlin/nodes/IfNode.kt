@@ -2,19 +2,17 @@ package nodes
 
 import engine.Node
 import engine.NodeResult
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
 import engine.StateAccess
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 
 class IfNode(
     override val name: String,
     override val configData: JsonNode
 ) : Node {
 
-    override val type = "SET"
-    override val stateAccess = StateAccess.READS_STATE
-    private val mapper = ObjectMapper()
+    override val type: String = "IF"
+    override val stateAccess: StateAccess = StateAccess.READS_STATE
 
     override fun execute(
         inputData: JsonNode,
@@ -22,29 +20,36 @@ class IfNode(
     ): NodeResult {
 
         val leftPath = configData["left"]?.asText()
-            ?: error("IF node missing 'left'")
+            ?: error("IF node '$name' missing 'left'")
 
         val operator = Operator.valueOf(
             configData["operator"]?.asText()
-                ?: error("IF node missing 'operator'")
+                ?: error("IF node '$name' missing 'operator'")
         )
 
-        val rightValue = configData["right"]
-            ?: error("IF node missing 'right'")
+        val rightValue = configData["right"]?.asText()
+            ?: error("IF node '$name' missing 'right'")
 
-        val leftValue = JsonPathResolver.resolve(leftPath, inputData,"false")
+        val trueNext = configData["trueNext"]?.asText()
+            ?: error("IF node '$name' missing 'trueNext'")
+
+        val falseNext = configData["falseNext"]?.asText()
+            ?: error("IF node '$name' missing 'falseNext'")
+
+        val leftValue = JsonPathResolver
+            .resolve(leftPath, inputData, "false")
             ?: error("Path not found: $leftPath")
 
         val condition = when (operator) {
-            Operator.EQUALS -> leftValue == rightValue.asText()
-            Operator.NOT_EQUALS -> leftValue != rightValue.asText()
+            Operator.EQUALS -> leftValue == rightValue
+            Operator.NOT_EQUALS -> leftValue != rightValue
         }
 
         val output = inputData.deepCopy<ObjectNode>()
 
         return NodeResult(
             outputData = output,
-            routeKey = condition.toString()
+            nextNode = if (condition) trueNext else falseNext
         )
     }
 }

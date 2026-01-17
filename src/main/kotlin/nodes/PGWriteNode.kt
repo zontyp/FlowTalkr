@@ -65,7 +65,10 @@ class PGWriteNode(
 
         // Preserve context
         val output = inputData.deepCopy<ObjectNode>()
-
-        return NodeResult(outputData = output)
+        val nextNode = configData["next"]?.asText()
+        return NodeResult(
+            outputData = output,
+            nextNode = nextNode
+        )
     }
 }

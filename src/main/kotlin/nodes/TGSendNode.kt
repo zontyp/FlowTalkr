@@ -44,7 +44,11 @@ class TGSendNode(
             }
         }
 
-        return NodeResult(outputData = inputData)
+        val nextNode = configData["next"]?.asText()
+        return NodeResult(
+            outputData = inputData,
+            nextNode = nextNode
+        )
     }
 
     // ------------------------------------------------------------------

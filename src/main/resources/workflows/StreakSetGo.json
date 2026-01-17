@@ -1,18 +1,68 @@
 {
-  "start": "setCommandType",
+  "start": "setHabitActionUpdate",
   "nodes": [
     {
-      "name": "setCommandType",
+      "name": "setHabitActionUpdate",
       "type": "SET",
       "config": {
-        "commandType": {
+        "habitActionUpdate": {
           "from": "$.command",
           "op": "SPLIT_BEFORE",
           "arg": ":"
-        }
-      },
-      "next": {
-        "default": "commandTypeSwitch"
+        },
+        "next": "setHabitId"
+      }
+    },
+    {
+      "name": "setHabitId",
+      "type": "SET",
+      "config": {
+        "habitId": {
+          "from": "$.command",
+          "op": "SPLIT_AFTER",
+          "arg": ":"
+        },
+        "next": "habitActionUpdateSwitch"
+      }
+    },
+
+    {
+      "name": "habitActionUpdateSwitch",
+      "type": "SWITCH",
+      "config": {
+        "cases": [
+          {
+            "left": "$.habitActionUpdate",
+            "op": "EQUALS",
+            "right": "done",
+            "next": "writeHabitDone"
+          },
+          {
+            "left": "$.habitActionUpdate",
+            "op": "EQUALS",
+            "right": "skip",
+            "next": "writeHabitSkipped"
+          }
+        ],
+        "default": "commandSwitch"
+      }
+    },
+
+    {
+      "name": "writeHabitDone",
+      "type": "PG_WRITE",
+      "config": {
+        "query": "INSERT INTO user_habits_done (user_id, habit_id, done_date, status, created_at) VALUES (:userId, CAST(:habitId AS BIGINT), CURRENT_DATE, 'done', NOW()) ON CONFLICT (user_id, habit_id, done_date) DO UPDATE SET status = 'done', created_at = NOW()",
+        "next": "commandSwitch"
+      }
+    },
+
+    {
+      "name": "writeHabitSkipped",
+      "type": "PG_WRITE",
+      "config": {
+        "query": "INSERT INTO user_habits_done (user_id, habit_id, done_date, status, created_at) VALUES (:userId, CAST(:habitId AS BIGINT), CURRENT_DATE, 'skipped', NOW()) ON CONFLICT (user_id, habit_id, done_date) DO UPDATE SET status = 'skipped', created_at = NOW()",
+        "next": "commandSwitch"
       }
     },
 
@@ -20,12 +70,21 @@
       "name": "commandSwitch",
       "type": "SWITCH",
       "config": {
-        "field": "$.command"
-      },
-      "next": {
-        "addhabit": "writeIsAddHabit",
-        "default": "readIsAddingHabit",
-        "done": "readUserHabits"
+        "cases": [
+          {
+            "left": "$.command",
+            "op": "EQUALS",
+            "right": "addhabit",
+            "next": "writeIsAddHabit"
+          },
+          {
+            "left": "$.command",
+            "op": "EQUALS",
+            "right": "listhabits",
+            "next": "readUserHabits"
+          }
+        ],
+        "default": "readIsAddingHabit"
       }
     },
 
@@ -35,23 +94,18 @@
       "config": {
         "query": "SELECT id, habit_name FROM user_habits WHERE user_id = :userId ORDER BY id ASC",
         "resultMode": "LIST",
-        "resultKey": "habits"
-      },
-      "next": {
-        "default": "sendHabitsDone"
+        "resultKey": "habits",
+        "next": "sendHabitsListActions"
       }
     },
-
 
     {
       "name": "readIsAddingHabit",
       "type": "PG_READ",
       "config": {
         "query": "SELECT COALESCE((SELECT is_adding_habit FROM user_state WHERE user_id = :userId), false) AS is_adding_habit",
-        "resultMode": "SINGLE"
-      },
-      "next": {
-        "default": "ifIsReadingHabit"
+        "resultMode": "SINGLE",
+        "next": "ifIsReadingHabit"
       }
     },
 
@@ -61,33 +115,27 @@
       "config": {
         "left": "$.is_adding_habit",
         "operator": "EQUALS",
-        "right": "true"
-      },
-      "next": {
-        "true": "writeInsertHabit",
-        "false": "helpFlow"
+        "right": "true",
+        "trueNext": "writeInsertHabit",
+        "falseNext": "helpFlow"
       }
     },
-
 
     {
       "name": "writeIsAddHabit",
       "type": "PG_WRITE",
       "config": {
-        "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, true) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = true"
-      },
-      "next": {
-        "default": "sendHabitNameAskMsg"
+        "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, true) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = true",
+        "next": "sendHabitNameAskMsg"
       }
     },
+
     {
       "name": "writeInsertHabit",
       "type": "PG_WRITE",
       "config": {
-        "query": "INSERT INTO user_habits (user_id, habit_name, created_at) VALUES (:userId, :command, NOW())"
-      },
-      "next": {
-        "default": "writeResetAddHabitState"
+        "query": "INSERT INTO user_habits (user_id, habit_name, created_at) VALUES (:userId, :command, NOW())",
+        "next": "writeResetAddHabitState"
       }
     },
 
@@ -95,12 +143,11 @@
       "name": "writeResetAddHabitState",
       "type": "PG_WRITE",
       "config": {
-        "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, false) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = false"
-      },
-      "next": {
-        "default": "sendHabitAddedSuccessfully"
+        "query": "INSERT INTO user_state (user_id, is_adding_habit) VALUES (:userId, false) ON CONFLICT (user_id) DO UPDATE SET is_adding_habit = false",
+        "next": "sendHabitAddedSuccessfully"
       }
     },
+
     {
       "name": "sendHabitNameAskMsg",
       "type": "TG_SEND",
@@ -108,6 +155,7 @@
         "text": "Please type habit name to add the habit. example - 'Daily Run', 'Sleep On Time' etc."
       }
     },
+
     {
       "name": "sendHabitAddedSuccessfully",
       "type": "TG_SEND",
@@ -115,6 +163,7 @@
         "text": "We added your habit successfully."
       }
     },
+
     {
       "name": "helpFlow",
       "type": "TG_SEND",
@@ -122,13 +171,14 @@
         "text": "Help Message"
       }
     },
+
     {
-      "name": "sendHabitsDone",
+      "name": "sendHabitsListActions",
       "type": "TG_SEND",
       "config": {
         "mode": "MULTI_ITEM_SINGLE_MESSAGE",
         "listPath": "$.habits",
-        "headerText": "Your habits for today 👇",
+        "headerText": "Please mark (done / skipped) your habits for today 👇",
         "rowTemplate": [
           {
             "text": "👍 {habit_name}",
@@ -141,8 +191,5 @@
         ]
       }
     }
-
-
-
   ]
 }

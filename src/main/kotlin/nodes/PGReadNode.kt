@@ -24,7 +24,7 @@ class PGReadNode(
     ): NodeResult {
 
         val sql = configData["query"]?.asText()
-            ?: error("PGReadNode missing 'query'")
+            ?: error("PGReadNode '$name' missing 'query'")
 
         val resultMode = configData["resultMode"]?.asText() ?: "SINGLE"
         val resultKey = configData["resultKey"]?.asText() ?: "result"
@@ -36,7 +36,6 @@ class PGReadNode(
 
         val resolvedSql = paramRegex.replace(sql, "?")
 
-        // ✅ FIX 1: safe ObjectNode creation
         val output = (inputData as? ObjectNode)?.deepCopy()
             ?: mapper.createObjectNode()
 
@@ -55,7 +54,6 @@ class PGReadNode(
                         value.isBoolean ->
                             ps.setBoolean(index++, value.asBoolean())
 
-                        // ✅ FIX 2: correct floating check
                         value.isFloatingPointNumber ->
                             ps.setDouble(index++, value.asDouble())
 
@@ -105,8 +103,8 @@ class PGReadNode(
                                 )
                             }
                         }
-                        else {
-                            // explicitly do nothing
+                        else{
+
                         }
                     }
 
@@ -115,6 +113,12 @@ class PGReadNode(
             }
         }
 
-        return NodeResult(outputData = output)
+        // ✅ NEW: node decides continuation
+        val nextNode = configData["next"]?.asText()
+
+        return NodeResult(
+            outputData = output,
+            nextNode = nextNode
+        )
     }
 }

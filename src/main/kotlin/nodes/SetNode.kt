@@ -36,7 +36,11 @@ class SetNode(
             merged.set<JsonNode>(targetKey, result)
         }
 
-        return NodeResult(outputData = merged)
+        val nextNode = configData["next"]?.asText()
+        return NodeResult(
+            outputData = merged,
+            nextNode = nextNode
+        )
     }
 
     // ------------------------------------------------------------

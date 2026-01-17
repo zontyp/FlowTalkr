@@ -18,7 +18,6 @@ fun main() {
     val dataSource = PostgresDataSource.create()
     val nodeFactory = NodeFactory(dataSource,mapper,"7792900880:AAGvtYGBCzK0Can3RJ5WEKVgfpRx5Ujy8as")
     val converter = WorkflowConverter(nodeFactory)
-
     val workflow = converter.convert(workflowDefinition)
 
 // Initial input (empty for now)

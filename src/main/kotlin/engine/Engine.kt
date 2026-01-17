@@ -15,31 +15,22 @@ class Engine {
         val state = mutableMapOf<String, JsonNode>()
 
         while (currentNodeName != null) {
+
             val wfNode = workflow.nodes[currentNodeName]
                 ?: error("Unknown node: $currentNodeName")
-            println("executing")
-            println (wfNode.node)
-            println(wfNode.next)
-            println("executing ends")
+
+            println("▶ Executing node: $currentNodeName")
+
             val result = wfNode.node.execute(
                 inputData = currentData,
                 state = state
             )
 
             currentData = result.outputData
-            println("output data is ")
-            println(currentData)
-            println("output data ends ")
-
-            // 🔑 routing decision
-            var routeKey = result.routeKey ?: "default"
-            if(routeKey !in wfNode.next)
-                routeKey = "default"
-            currentNodeName = wfNode.next[routeKey]
-            println("printing route key ")
-            println(routeKey)
-            println(currentNodeName)
-            println("printing route key ends ")
+            currentNodeName = result.nextNode
+            println("✔ Output Data : $currentData")
+            println("✔ Next node: $currentNodeName")
+            println("----")
         }
 
         return currentData
