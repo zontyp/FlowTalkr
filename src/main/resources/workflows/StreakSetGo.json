@@ -1,76 +1,24 @@
 {
-  "start": "setHabitActionUpdate",
+  "start": "commandSwitch",
   "nodes": [
-    {
-      "name": "setHabitActionUpdate",
-      "type": "SET",
-      "config": {
-        "habitActionUpdate": {
-          "from": "$.command",
-          "op": "SPLIT_BEFORE",
-          "arg": ":"
-        },
-        "next": "setHabitId"
-      }
-    },
-    {
-      "name": "setHabitId",
-      "type": "SET",
-      "config": {
-        "habitId": {
-          "from": "$.command",
-          "op": "SPLIT_AFTER",
-          "arg": ":"
-        },
-        "next": "habitActionUpdateSwitch"
-      }
-    },
-
-    {
-      "name": "habitActionUpdateSwitch",
-      "type": "SWITCH",
-      "config": {
-        "cases": [
-          {
-            "left": "$.habitActionUpdate",
-            "op": "EQUALS",
-            "right": "done",
-            "next": "writeHabitDone"
-          },
-          {
-            "left": "$.habitActionUpdate",
-            "op": "EQUALS",
-            "right": "skip",
-            "next": "writeHabitSkipped"
-          }
-        ],
-        "default": "commandSwitch"
-      }
-    },
-
-    {
-      "name": "writeHabitDone",
-      "type": "PG_WRITE",
-      "config": {
-        "query": "INSERT INTO user_habits_done (user_id, habit_id, done_date, status, created_at) VALUES (:userId, CAST(:habitId AS BIGINT), CURRENT_DATE, 'done', NOW()) ON CONFLICT (user_id, habit_id, done_date) DO UPDATE SET status = 'done', created_at = NOW()",
-        "next": "commandSwitch"
-      }
-    },
-
-    {
-      "name": "writeHabitSkipped",
-      "type": "PG_WRITE",
-      "config": {
-        "query": "INSERT INTO user_habits_done (user_id, habit_id, done_date, status, created_at) VALUES (:userId, CAST(:habitId AS BIGINT), CURRENT_DATE, 'skipped', NOW()) ON CONFLICT (user_id, habit_id, done_date) DO UPDATE SET status = 'skipped', created_at = NOW()",
-        "next": "commandSwitch"
-      }
-    },
 
     {
       "name": "commandSwitch",
       "type": "SWITCH",
       "config": {
         "cases": [
+          {
+            "left": "$.command",
+            "op": "STARTS_WITH",
+            "right": "done:",
+            "next": "setHabitIdForDone"
+          },
+          {
+            "left": "$.command",
+            "op": "STARTS_WITH",
+            "right": "skip:",
+            "next": "setHabitIdForSkip"
+          },
           {
             "left": "$.command",
             "op": "EQUALS",
@@ -85,6 +33,48 @@
           }
         ],
         "default": "readIsAddingHabit"
+      }
+    },
+
+    {
+      "name": "setHabitIdForDone",
+      "type": "SET",
+      "config": {
+        "habitId": {
+          "from": "$.command",
+          "op": "SPLIT_AFTER",
+          "arg": ":"
+        },
+        "next": "writeHabitDone"
+      }
+    },
+
+    {
+      "name": "setHabitIdForSkip",
+      "type": "SET",
+      "config": {
+        "habitId": {
+          "from": "$.command",
+          "op": "SPLIT_AFTER",
+          "arg": ":"
+        },
+        "next": "writeHabitSkipped"
+      }
+    },
+
+    {
+      "name": "writeHabitDone",
+      "type": "PG_WRITE",
+      "config": {
+        "query": "INSERT INTO user_habits_done (user_id, habit_id, done_date, status, created_at) VALUES (:userId, CAST(:habitId AS BIGINT), CURRENT_DATE, 'done', NOW()) ON CONFLICT (user_id, habit_id, done_date) DO UPDATE SET status = 'done', created_at = NOW()"
+      }
+    },
+
+    {
+      "name": "writeHabitSkipped",
+      "type": "PG_WRITE",
+      "config": {
+        "query": "INSERT INTO user_habits_done (user_id, habit_id, done_date, status, created_at) VALUES (:userId, CAST(:habitId AS BIGINT), CURRENT_DATE, 'skipped', NOW()) ON CONFLICT (user_id, habit_id, done_date) DO UPDATE SET status = 'skipped', created_at = NOW()"
       }
     },
 
