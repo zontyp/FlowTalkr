@@ -30,11 +30,31 @@
             "op": "EQUALS",
             "right": "listhabits",
             "next": "readUserHabits"
+          },
+          {
+            "left": "$.command",
+            "op": "STARTS_WITH",
+            "right": "stats ",
+            "next": "setStatsHabitName"
           }
+
         ],
         "default": "readIsAddingHabit"
       }
     },
+    {
+      "name": "setStatsHabitName",
+      "type": "SET",
+      "config": {
+        "statsHabitName": {
+          "from": "$.command",
+          "op": "SUBSTRING_AFTER",
+          "arg": "stats "
+        },
+        "next": "readHabitStats"
+      }
+    },
+
 
     {
       "name": "setHabitIdForDone",
@@ -75,6 +95,16 @@
       "type": "PG_WRITE",
       "config": {
         "query": "INSERT INTO user_habits_done (user_id, habit_id, done_date, status, created_at) VALUES (:userId, CAST(:habitId AS BIGINT), CURRENT_DATE, 'skipped', NOW()) ON CONFLICT (user_id, habit_id, done_date) DO UPDATE SET status = 'skipped', created_at = NOW()"
+      }
+    },
+    {
+      "name": "readHabitStats",
+      "type": "PG_READ",
+      "config": {
+        "query": "SELECT done_date, status FROM user_habits_done JOIN user_habits ON user_habits_done.habit_id = user_habits.id WHERE user_habits.user_id = :userId AND user_habits.habit_name = :statsHabitName ORDER BY done_date",
+        "resultMode": "LIST",
+        "resultKey": "stats",
+        "next": "sendHabitStats"
       }
     },
 
@@ -137,6 +167,17 @@
         "next": "sendHabitAddedSuccessfully"
       }
     },
+    {
+      "name": "formatHabitStats",
+      "type": "WASM",
+      "config": {
+        "wasmFile": "habit_stats_wasm.wasm",
+        "function": "run",
+        "input": "$",
+        "outputKey": "statsText",
+        "next": "sendHabitStats"
+      }
+    },
 
     {
       "name": "sendHabitNameAskMsg",
@@ -159,6 +200,13 @@
       "type": "TG_SEND",
       "config": {
         "text": "Help Message"
+      }
+    },
+    {
+      "name": "sendHabitStats",
+      "type": "TG_SEND",
+      "config": {
+        "text": "$.statsText"
       }
     },
 
