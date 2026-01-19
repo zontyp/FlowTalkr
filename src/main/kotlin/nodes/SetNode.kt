@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.NullNode
 import com.fasterxml.jackson.databind.node.TextNode
+import com.fasterxml.jackson.databind.ObjectMapper
 
 class SetNode(
     override val name: String,
@@ -24,12 +25,12 @@ class SetNode(
         configData.fields().forEach { (targetKey, configValue) ->
 
             val result: JsonNode = when {
-                // 🔹 NEW: object-based SET (from / op / arg)
+                // 🔹 object-based SET (from / op / arg)
                 configValue.isObject -> {
                     applyOperation(configValue, merged)
                 }
 
-                // 🔹 OLD: literal copy (backward compatible)
+                // 🔹 literal copy
                 else -> configValue
             }
 
@@ -69,7 +70,7 @@ class SetNode(
                 if (arg != null && value.contains(arg))
                     TextNode(value.substringBefore(arg))
                 else
-                    TextNode(value) // no delimiter → keep original
+                    TextNode(value)
             }
 
             "SPLIT_AFTER" -> {
@@ -79,6 +80,14 @@ class SetNode(
                     NullNode.instance
             }
 
+            // ✅ NEW OPERATOR (fixes your error)
+            "SUBSTRING_AFTER" -> {
+                if (arg != null && value.contains(arg))
+                    TextNode(value.substringAfter(arg))
+                else
+                    TextNode("")   // safe default
+            }
+
             "PREFIX" -> {
                 if (arg != null && value.contains(arg)) {
                     val idx = value.indexOf(arg)
@@ -86,9 +95,12 @@ class SetNode(
                 } else {
                     NullNode.instance
                 }
-
-
             }
+            "PARSE_JSON" -> {
+                val mapper = ObjectMapper()
+                mapper.readTree(value)
+            }
+
 
             else -> error("Unsupported SET op: $op")
         }

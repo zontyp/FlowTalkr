@@ -5,6 +5,42 @@ import telegram.TelegramWebhookTrigger
 import workflow.NodeFactory
 import workflow.WorkflowParser
 import workflow.WorkflowConverter
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
+
+fun maintest() {
+    val process = ProcessBuilder(
+        "bin/wasmtime.exe",
+        "wasm/habit_stats_wasm.wasm"
+    )
+        .redirectErrorStream(true)
+        .start()
+
+    val inputJson = """
+        {
+          "habitName": "Test",
+          "stats": [
+            { "date": "2026-01-01", "status": "done" },
+            { "date": "2026-01-02", "status": "skipped" },
+            { "date": "2026-01-03", "status": "done" }
+          ]
+        }
+    """.trimIndent()
+
+    // 🔑 THIS IS CRITICAL
+    process.outputStream.use { os ->
+        os.write(inputJson.toByteArray())
+        os.flush()
+    } // stdin CLOSED here
+
+    process.waitFor(3, TimeUnit.SECONDS)
+
+    val output = process.inputStream.bufferedReader().readText()
+
+    println("=== OUTPUT ===")
+    println(output)
+}
 
 fun main() {
     val mapper = ObjectMapper()

@@ -23,6 +23,8 @@ class NodeFactory(
             "PG_WRITE" -> PGWriteNode(name, config, dataSource)
             "PG_READ" -> PGReadNode(name, config, dataSource, mapper)
             "TG_SEND" -> TGSendNode(name, config, botToken, mapper)
+            "WASM" -> WasmNode(name, config,mapper)
+
 
 
             else  -> error("Unknown node type: $type")

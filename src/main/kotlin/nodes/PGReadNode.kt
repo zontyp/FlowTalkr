@@ -29,10 +29,12 @@ class PGReadNode(
         val resultMode = configData["resultMode"]?.asText() ?: "SINGLE"
         val resultKey = configData["resultKey"]?.asText() ?: "result"
 
-        val paramRegex = Regex(":(\\w+)")
+        val paramRegex = Regex("(?<!:):(\\w+)")
         val paramNames = paramRegex.findAll(sql)
             .map { it.groupValues[1] }
             .toList()
+        println("pg read node param names are ")
+        println(paramNames)
 
         val resolvedSql = paramRegex.replace(sql, "?")
 

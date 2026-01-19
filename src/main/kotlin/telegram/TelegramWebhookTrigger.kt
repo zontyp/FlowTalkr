@@ -11,6 +11,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
+import kotlinx.coroutines.*
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -30,7 +31,7 @@ class TelegramWebhookTrigger(
     }
 
     /**
-     * Tells Telegram where to send updates
+     * Registers webhook with Telegram
      */
     private fun registerWebhook() {
         val url = URL("https://api.telegram.org/bot$botToken/setWebhook")
@@ -59,9 +60,8 @@ class TelegramWebhookTrigger(
         println("Telegram webhook registered with callback_query support")
     }
 
-
     /**
-     * Starts HTTP server to receive Telegram updates
+     * Starts HTTP server
      */
     private fun startServer() {
         embeddedServer(Netty, port = 8080) {
@@ -70,16 +70,25 @@ class TelegramWebhookTrigger(
                     val payload = call.receiveText()
                     val update = mapper.readTree(payload)
 
-                    handleUpdate(update)
-
+                    // ✅ Respond immediately to Telegram
                     call.respond(HttpStatusCode.OK)
+
+                    // ✅ Process asynchronously (CRITICAL FIX)
+                    CoroutineScope(Dispatchers.Default).launch {
+                        try {
+                            handleUpdate(update)
+                        } catch (e: Exception) {
+                            println("Error processing Telegram update")
+                            e.printStackTrace()
+                        }
+                    }
                 }
             }
         }.start(wait = true)
     }
 
     /**
-     * Converts Telegram update → workflow input
+     * Converts Telegram update → workflow input → engine run
      */
     private fun handleUpdate(update: JsonNode) {
 
@@ -119,7 +128,7 @@ class TelegramWebhookTrigger(
                     callback["data"].asText()
                 )
 
-                // REQUIRED by Telegram UX
+                // Required by Telegram UX
                 answerCallbackQuery(callback["id"].asText())
             }
 
@@ -140,6 +149,10 @@ class TelegramWebhookTrigger(
         println("ENGINE RESULT:")
         println(result.toPrettyString())
     }
+
+    /**
+     * Acknowledge inline button click
+     */
     private fun answerCallbackQuery(callbackQueryId: String) {
         val url = URL("https://api.telegram.org/bot$botToken/answerCallbackQuery")
 
@@ -156,6 +169,4 @@ class TelegramWebhookTrigger(
             it.write(mapper.writeValueAsBytes(payload))
         }
     }
-
-
 }

@@ -101,12 +101,14 @@
       "name": "readHabitStats",
       "type": "PG_READ",
       "config": {
-        "query": "SELECT done_date, status FROM user_habits_done JOIN user_habits ON user_habits_done.habit_id = user_habits.id WHERE user_habits.user_id = :userId AND user_habits.habit_name = :statsHabitName ORDER BY done_date",
+        "query": "SELECT uhd.done_date::text AS date, uhd.status FROM user_habits_done uhd JOIN user_habits uh ON uhd.habit_id = uh.id WHERE uh.user_id = :userId AND LOWER(TRIM(uh.habit_name)) = LOWER(TRIM(:statsHabitName)) ORDER BY uhd.done_date",
         "resultMode": "LIST",
         "resultKey": "stats",
-        "next": "sendHabitStats"
+        "next": "formatHabitStats"
       }
     },
+
+
 
     {
       "name": "readUserHabits",
@@ -168,16 +170,27 @@
       }
     },
     {
+      "name": "normalizeStatsJson",
+      "type": "SET",
+      "config": {
+        "stats": {
+          "from": "$.stats.value",
+          "op": "PARSE_JSON"
+        },
+        "next": "formatHabitStats"
+      }
+    },
+
+    {
       "name": "formatHabitStats",
       "type": "WASM",
       "config": {
-        "wasmFile": "habit_stats_wasm.wasm",
-        "function": "run",
-        "input": "$",
+        "wasmPath": "wasm/habit_stats_wasm.wasm",
         "outputKey": "statsText",
         "next": "sendHabitStats"
       }
     },
+
 
     {
       "name": "sendHabitNameAskMsg",
