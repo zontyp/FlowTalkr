@@ -1,5 +1,6 @@
 import engine.Engine
 import com.fasterxml.jackson.databind.ObjectMapper
+import cron.CronRegistrar
 import db.PostgresDataSource
 import telegram.TelegramWebhookTrigger
 import workflow.NodeFactory
@@ -55,11 +56,12 @@ fun main() {
     val nodeFactory = NodeFactory(dataSource,mapper,"7792900880:AAGvtYGBCzK0Can3RJ5WEKVgfpRx5Ujy8as")
     val converter = WorkflowConverter(nodeFactory)
     val workflow = converter.convert(workflowDefinition)
-
+    val workflowList = listOf(workflow)
+    CronRegistrar.register(workflowList)
 // Initial input (empty for now)
     val engine = Engine()
     val trigger = TelegramWebhookTrigger(
-        botToken = "7792900880:AAGvtYGBCzK0Can3RJ5WEKVgfpRx5Ujy8as",
+        botToken = "",
         publicBaseUrl = "https://devon-argillaceous-jenni.ngrok-free.dev",
         workflow = workflow,
         engine = engine,

@@ -12,6 +12,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
+import workflow.TriggerDefinition
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -140,9 +141,12 @@ class TelegramWebhookTrigger(
 
         println("NORMALIZED INPUT TO ENGINE:")
         println(input.toPrettyString())
-
+        val telegramTrigger = workflow.triggers
+            .filterIsInstance<TriggerDefinition.Telegram>()
+            .first()
         val result = engine.run(
             workflow = workflow,
+            startNode = telegramTrigger.startNode,
             initialInput = input
         )
 

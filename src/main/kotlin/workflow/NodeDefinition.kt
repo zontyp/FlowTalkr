@@ -11,5 +11,4 @@ data class NodeDefinition(
     val name: String,
     val type: String,
     val config: JsonNode,
-    val next: Map<String, String> = emptyMap()
 )

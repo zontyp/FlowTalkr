@@ -2,14 +2,15 @@ package workflow
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-//read json and create list of nodedefs
+
 class WorkflowParser(
     private val mapper: ObjectMapper
 ) {
 
     fun parse(json: JsonNode): WorkflowDefinition {
-        val start = json["start"]
-            ?: error("Missing 'start' in workflow")
+
+        val id = json["id"]?.asText()
+            ?: error("Missing 'id' in workflow")
 
         val nodesJson = json["nodes"]
             ?: error("Missing 'nodes' in workflow")
@@ -21,29 +22,37 @@ class WorkflowParser(
                 type = nodeJson["type"]?.asText()
                     ?: error("Node missing 'type'"),
                 config = nodeJson["config"]
-                    ?: mapper.createObjectNode(),
-                next = parseNext(nodeJson["next"])
+                    ?: mapper.createObjectNode()
             )
         }
 
+        println(json["triggers"])
+        val triggers = json["triggers"]?.map { triggerJson ->
+            when (triggerJson["type"]?.asText()) {
+                "cron" -> TriggerDefinition.Cron(
+                    id = triggerJson["id"]?.asText()
+                        ?: error("Cron trigger missing 'id'"),
+                    startNode = triggerJson["startNode"]?.asText()
+                        ?: error("Cron trigger missing 'expression'"),
+                    expression = triggerJson["expression"]?.asText()
+                        ?: error("Cron trigger missing 'expression'")
+                )
+            "telegram" -> TriggerDefinition.Telegram(
+                    id = triggerJson["id"]?.asText()
+                        ?: error("Cron trigger missing 'id'"),
+                    startNode = triggerJson["startNode"]?.asText()
+                        ?: error("Cron trigger missing 'expression'")
+
+                )
+                else -> error("Unknown trigger type")
+            }
+        } ?: emptyList()
 
         return WorkflowDefinition(
-            start = start.asText(),
-            nodes = nodes
+            id = id,
+
+            nodes = nodes,
+            triggers = triggers
         )
-    }
-
-    private fun parseNext(nextNode: JsonNode?): Map<String, String> {
-        if (nextNode == null || nextNode.isNull) {
-            return emptyMap()
-        }
-
-        if (!nextNode.isObject) {
-            error("'next' must be an object")
-        }
-
-        return nextNode.fields().asSequence().associate { (key, value) ->
-            key to value.asText()
-        }
     }
 }

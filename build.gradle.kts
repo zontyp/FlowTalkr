@@ -21,6 +21,7 @@ dependencies {
     implementation("io.ktor:ktor-serialization-jackson:2.3.7")
 
     implementation("ch.qos.logback:logback-classic:1.5.6")
+    implementation("org.quartz-scheduler:quartz:2.3.2")
 
     // ✅ WASM runtime (correct artifact)
 }

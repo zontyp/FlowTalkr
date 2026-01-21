@@ -7,21 +7,22 @@ class Engine {
 
     fun run(
         workflow: Workflow,
+        startNode: String,
         initialInput: JsonNode
     ): JsonNode {
 
-        var currentNodeName: String? = workflow.start
+        var currentNodeName: String? = startNode
         var currentData: JsonNode = initialInput
         val state = mutableMapOf<String, JsonNode>()
 
         while (currentNodeName != null) {
 
-            val wfNode = workflow.nodes[currentNodeName]
+            val currentNode = workflow.nodesNameMap[currentNodeName]
                 ?: error("Unknown node: $currentNodeName")
 
             println("▶ Executing node: $currentNodeName")
 
-            val result = wfNode.node.execute(
+            val result = currentNode.execute(
                 inputData = currentData,
                 state = state
             )

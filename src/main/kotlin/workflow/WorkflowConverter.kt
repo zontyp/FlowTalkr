@@ -1,12 +1,11 @@
 package workflow
-
+//converts list of nodes in workflowdefinition to map(nodeName:Node)
 class WorkflowConverter(
     private val nodeFactory: NodeFactory
 ) {
 
     fun convert(definition: WorkflowDefinition): Workflow {
-
-        val workflowNodes = definition.nodes.associate { defNode ->
+        val nodesNameMap = definition.nodes.associate { defNode ->
 
             val node = nodeFactory.create(
                 name = defNode.name,
@@ -14,16 +13,13 @@ class WorkflowConverter(
                 config = defNode.config
             )
 
-            defNode.name to WorkflowNode(
-                name = defNode.name,
-                node = node,
-                next = defNode.next
-            )
+            defNode.name to node
         }
 
         return Workflow(
-            start = definition.start,
-            nodes = workflowNodes
+            id = definition.id,
+            nodesNameMap = nodesNameMap,
+            triggers = definition.triggers
         )
     }
 }

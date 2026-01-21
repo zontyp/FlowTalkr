@@ -1,5 +1,19 @@
 {
-  "start": "commandSwitch",
+  "id": "StreakTronBot",
+  "triggers": [
+    {
+      "type": "telegram",
+      "id": "telegram_entry",
+      "startNode": "commandSwitch"
+    },
+    {
+      "type": "cron",
+      "id": "daily_reminder",
+      "expression": "0 * * * * ?",
+      "startNode": "setTestNode"
+    }
+  ],
+
   "nodes": [
 
     {
@@ -55,7 +69,14 @@
       }
     },
 
+    {
+      "name": "setTestNode",
+      "type": "SET",
+      "config": {
+        "test": "test"
 
+      }
+    },
     {
       "name": "setHabitIdForDone",
       "type": "SET",
